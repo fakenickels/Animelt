@@ -18,16 +18,17 @@
 <div id="t" style="width:150px;height:150px;background-color:red;position:relative;"></div>
 <div id="other" style="width:150px;height:150px;background-color:blue;position:relative"></div>
 <a href="#">Teste</a>
-<a href="#" onclick="ge('#t').animelt({boxShadow:'0 0 20px #000'},0.4)">Teste</a>
+<a href="#" onclick="ge('#t').animelt({boxShadow:'0px 0px 20px #000'},0.4)">Teste</a>
 <a href="#" onclick="ge('#other').animelt({'background-image':'-webkit-linear-gradient(360deg,#fff,#000)'})">Teste</a>
 <script type="text/javascript">
-	ge("a").bag[0].onclick = function(){
+	$("a").click(function(e){
+		e.preventDefault();
+	})
+	$("a").first().click(function(){
 		ge(".test").animelt({
 			border: "2px solid #000"
 		}, 1);
-		return false;
-	};
-	ge(".test").dragOn();
+	});
 </script>
 <div class="test"></div>
 <div class="test"></div>

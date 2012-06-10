@@ -27,8 +27,8 @@ var ge = function( sel,ctx ){
 
 //Regexps
 var unit = /[a-z%]+$/i,
-	digits = /\d+/g,
-	simpleVal = /(\d+)([a-z%]+)/gi,
+	digits = /[0-9.]+/g,
+	simpleVal = /([0-9.]+)([a-z%]+)/gi,
 	words = /[a-z]+/gi,
 	complex = /[(),\s]+/g;
 
@@ -74,6 +74,7 @@ ge.fn = ge.prototype = {
 		
 		if( document.querySelectorAll ){
 			this.bag = ge.makeArray( ctx.querySelectorAll(sel) );
+
 			return this;
 		};
 		//Use jQuery, if it exists
@@ -126,59 +127,33 @@ ge.fn = ge.prototype = {
 				return this.bag[0].currentStyle[ ge.decamel(props) ];
 		}
 		ge.each(this.bag,function(){
-			for(var key in props){
-				if( typeof props[ key ] == "number" && key !== "opacity" )
-					this.style[ key ] = props[ key ] + "px";
-				else{
-					if( props[key].charAt(0) == "+" || props[key].charAt(0) == "-" )
-						this.style[ key ] = 
-							ge.cssMath( ge.css( ge.decamel(key) ,this ), to , props[key].charAt(0) ) ;
-					else
-						this.style[ key ] = props[ key ];
-				}
-			}
+			ge.css( props,this );
 		});
 		return this;
 	},
 	
-	attr: function( props ){
-		if( typeof props == "string" ){
-			return this.bag[0].getAttribute( props );
-		}
-		ge.each( this.bag,function(){
-			for( var key in props ){
-				this.setAttribute( key,props[key] );
-			};
-		});
-		return this;
-	},
-	
-	animelt: function(){
-		var props, 
-			opts = {}, 
-			fn, lenArg = arguments.length;
-		props = arguments[ 0 ];
-
-		arguments = [].slice.call( arguments,1,lenArg-1 );
-		
-		ge.each( arguments,function(){
-			switch( typeof this ){
-				case "number": opts.duration = this; break;
-				case "string": opts.easing = this; break;
-				case "function": fn = this; break;
-			}
-		} );
-
+	animelt: function( props,opts,time,fn,easing ){
+		if( !props ) return this;
+		var bkp;
+		if( typeof opts == "number" ){
+			bkp = opts;
+				opts = {};
+				opts.duration = bkp;
+		};
+		if( typeof opts == "string" ){
+			bkp = opts;
+				opts = {};
+				opts.easing = bkp;
+		};
 		//If no opts.duration he assumes, the defualt value, 600ms.
 		if( !opts ) opts = { duration:0.6 };
 		
 		if( !opts.duration ) opts.duration = 0.6;
-		
+
 		opts.duration = opts.duration * 1000;
 
 		var start, now,
-			diff = [], from = [], leUnit = [],
-			diffComplex = [], fromComplex = [], //A local reserved for complex values
+			diffComplex = [], fromComplex = [],
 			per,
 			easing = opts.easing ? ge.easings[ opts.easing ] : function( p ){ return p; },
 			interval = opts.fps ? Math.round( 1000/opts.fps ) : 20;
@@ -187,23 +162,27 @@ ge.fn = ge.prototype = {
 			lethis = this;
 		//'Precreate' a local for store the props values from,diff,unit
 		ge.each( els,function( elIndex ){			
-			from[elIndex] = [];
-			diff[elIndex] = [];
-			leUnit[elIndex] = [];
 			fromComplex[elIndex] = [];
 			diffComplex[elIndex] = [];				
 		} );		
 		
+		//@fromComplex and @diffComplex explanation:
+		//fromComplex[elIndex], references a other array with the props vals into him
+		//fromComplex[elIndex][i], references the prop values (complex or normals vals)
+
 		ge.each( props,function( i,prop,val ){
 			for(var elIndex=0,elCounter=els.length;elIndex < elCounter;elIndex++){
 				var theVal = ge.css( prop,els[elIndex] );
-				
-				fromComplex[elIndex][i] = els[elIndex].style[ ge.camel(prop) ].match(digits) || (theVal.match(digits) || [0]);
+				if( prop == "opacity" ){
+					fromComplex[elIndex][i] = parseFloat(theVal) || 0;
+					diffComplex[elIndex][i] = parseFloat(val) - fromComplex[elIndex][i];
+					continue;
+				};
+				fromComplex[elIndex][i] = els[elIndex].style[ ge.camel(prop) ].match(simpleVal) || (theVal.match(simpleVal) || [0]);
 				diffComplex[elIndex][i] = [];
-				
-				for( var cnt = 0,matches=val.match(digits),lngt=matches.length;cnt<lngt;cnt++ ){
-					fromComplex[elIndex][i][cnt] *= 1;
-					diffComplex[elIndex][i][cnt] = matches[cnt] - (fromComplex[elIndex][i][cnt] || 0);
+				for( var cnt = 0,matches=val.match(simpleVal),lngt=matches.length;cnt<lngt;cnt++ ){
+					fromComplex[elIndex][i][cnt] = parseFloat( fromComplex[elIndex][i][cnt] ) || 0;
+					diffComplex[elIndex][i][cnt] = parseFloat(matches[cnt]) - (fromComplex[elIndex][i][cnt] || 0);
 				};
 			};
 
@@ -224,11 +203,14 @@ ge.fn = ge.prototype = {
 				ge.each( els,function( ){
 						//The magic, but this incremental feature have a less performance
 						// :(
-						var x = 0;
+					var x = 0;
+					if( prop !== "opacity" )
 						this.style[ prop ] = val.replace(simpleVal,function(exp,num,unt){
 							return fromComplex[elIndex][i][x] + diffComplex[elIndex][i][x] * per + unt;
 							x++;
-						});	
+						});
+					else
+						this.style[ prop ] = fromComplex[elIndex][i] + diffComplex[elIndex][i] * per;	
 					elIndex++;
 				});
 			});
@@ -246,25 +228,41 @@ ge.fn = ge.prototype = {
 	push: function( els ){
 		if( els.nodeName )
 			this.bag.push( els );
-		if( els.constructor == Array )
+		else if( els.constructor == Array )
 			this.bag = this.bag.concat( els );
-		if( els.constructor == ge )
+		else if( els.constructor == ge )
 			this.bag = this.bag.concat( els.bag );
 		return this;
 	},
 
+	slice: function( from,to ){
+		this.bag = this.bag.slice( from,to );
+		return this;
+	},
+
+	nth: function( i ){
+		var lng = this.length;
+		return i === -1 ? this.slice( lng-1,lng ) : this.slice( i-1,i ); 
+	},
+
 	last: function(){
-		return ge( this.bag[ this.length-1 ] );
+		return this.nth( -1 );
 	},
 
 	first: function(){
-		return ge( this.bag[0] );
+		return this.nth( 1 );
 	}
 };
 
 ge.makeArray = function( obj ){
-	var lng = obj.length;
-	return [].slice.call( obj,0,lng );
+	var lng = obj.length,
+		arr = [],
+		i = 0;
+	ge.each( obj,function(i){
+		if( obj[ i ] !== undefined )
+			arr[ i ] = obj[ i ];
+	});
+	return arr;
 };
 
 ge.now = function(){
@@ -279,24 +277,25 @@ ge.css = function( props,els ){
 			else if( document.currentStyle)
 				return els.currentStyle[ props ];
 		}
-		ge.each(props,function(i,val){			
-			els.style[val] = this;
+		ge.each(props,function(i,prop,val){			
+			if( typeof val == "number" && prop !== "opacity" )
+				els.style[ prop ] = val + "px";
+			else
+				els.style[ prop ] = val;
 		});
 	};
 };
 
 ge.each = function( arr,fn ){
 	var i = 0;
-	if( arr.constructor == Object ){
+	if( arr.constructor == Object )
 		for( var val in arr)
 			fn.call( arr[val],i++,val,arr[val] );
-	}
-	else if( arr.constructor == Array ){
-		for( var count=arr.length;i<count;i++ ){
+	else
+		for( var count=arr.length;i<count;++i )
 			fn.call( arr[ i ],i,arr[ i ] );
-		};
-	};
 };
+//Strings manipulation
 
 ge.cssMath = function( str1,str2,op ){
 var n1 = parseFloat( str1,10 ),
@@ -318,12 +317,24 @@ ge.camel = function( str ){
 	});
 };
 
+ge.trim = function( str ){
+	return str.replace( /^\s+|\s+$/,"" );
+};
+
+ge.easings = {
+};
+ge.queue = [];
+
+//----Extend functions----
+
+//Category: Events
+
 ge.bind = function( el,evnts,fn ){
 	var evnt = evnts.split(" ");
 	
 	if ( el.addEventListener )
 		ge.each( evnt,function( i ){
-			el.addEventListener( evnt[ i ],fn );
+			el.addEventListener( evnt[ i ],fn,false );
 		} );
 	else if ( el.attachEvent )
 		ge.each( evnt,function( i ){
@@ -331,21 +342,25 @@ ge.bind = function( el,evnts,fn ){
 		} );	
 };
 
-ge.easings = {
-};
-ge.queue = [];
-
-//Extend functions
 ge.fn.bind = function( evnts,fn ){
 	this.each( function(){
 		ge.bind( this,evnts,fn );
 	} );
+	return this;
 };
+
+ge.fn.click = function( fn ){
+	this.each(function(){
+		ge.bind( this,"click",fn );
+	});
+	return this;
+}
 
 ge.fn.move = function( fn ){
 	this.each(function(){
 		ge.bind( this,"mousemove",fn );
 	});
+	return this;
 };
 
 ge.fn.mousedown = function( fn,fn2 ){
@@ -356,40 +371,106 @@ ge.fn.mousedown = function( fn,fn2 ){
 	this.each(function(){
 		ge.bind( this,"mouseup",fn2 )
 	});
+	return this;
 };
 
-ge.fn.mouseup = function( fn ){
+ge.fn.mouseup = function( fn,fn2 ){
 	this.each(function(){
 		ge.bind( this,"mouseup",fn );
 	});	
 	if( fn2 )
+		this.each(function(){
+			ge.bind( this,"mousedown",fn2 )
+		});
+	return this;
+};
+
+ge.fn.hover = function( fn,fn2 ){
 	this.each(function(){
-		ge.bind( this,"mousedown",fn2 )
+		ge.bind( this,"mouseover",fn );
+	});	
+	if( fn2 )
+		this.each(function(){
+			ge.bind( this,"mouseout",fn2 )
+		});
+	return this;
+};
+
+var isDown = false,
+	startDownX = 0,
+	startDownY = 0,
+	offset = {};
+ge.bind( document,"mousemove",function( ev ){
+	var el = ev.target || ev.srcElement,
+		dragEl = ((el.getAttribute("class") + "").search("animelt-drag")*1)+1;
+	if( isDown && dragEl ){
+		el.style.left = ev.clientX - el.offsetX + "px";
+		el.style.top = ev.clientY - el.offsetY + "px";
+	};
+});
+ge.bind( document,"mousedown",function(ev){
+	var el = ev.target || ev.srcElement,
+		dragEl = ((el.getAttribute("class") + "").search("animelt-drag")*1)+1;
+	if( dragEl ){ 
+		isDown = true;
+		startDownY = ev.clientY;
+		startDownX = ev.clientX;
+		return false;
+	}
+});
+
+ge.bind( document,"mouseup",function(){
+	isDown = false;
+} );
+
+ge.fn.dragOn = function(){
+	this.addClass( "animelt-drag" );
+
+	this.move(function( ev ){
+		this.offsetX = ev.clientX - ev.target.offsetLeft;
+		this.offsetY = ev.clientY - ev.target.offsetTop;
 	});
 };
 
-ge.fn.on = function( evnts ){
-	var on = false;
-	this.bind( evnts,function(){
-		on ? true : false;
-	} );
-	return on;
-}
-ge.fn.dragOn = function(){
-	
+//Category: DOM manipulate
+ge.fn.attr = function( attrs,val ){
+	if( typeof attrs == "string" && !val)
+		return this.bag[0].getAttribute( attrs );
+	if( typeof attrs == "string" )
+		this.each(function(){
+			this.setAttribute( attrs,val );
+		});
+	else 
+		this.each(function(i,el){
+			ge.each( attr,function(i,attr,val){
+				el.setAttribute( attr,val );
+			} );
+		})
+	return this;
 };
 
-function dragTo( e ){
-	e = e || window.event;
-	var x = e.clientX ? e.clientX : e.screenX,
-		y = e.clientY ? e.clientY : e.screenY;
-	x = x - e.target.offsetLeft;
-	y = y - e.target.offsetTop;
-	return {
-		x: x,
-		y: y
-	};
+ge.fn.addClass = function( classes ){
+	this.each(function(){
+		var oldClasses = this.getAttribute( "class" ) || "";
+			oldClasses = ge.trim(oldClasses);
+		this.setAttribute( "class",oldClasses + " " + classes )
+	});
+	return this;
 };
+
+ge.fn.removeClass = function( classes ){
+	var klass = classes.split(" ");
+	this.each(function(){
+		var oldClasses = this.getAttribute( "class" ) || "";
+		ge.each( klass,function( i ){
+			oldClasses = oldClasses.replace( klass[i],"" );
+		} );
+		oldClasses = ge.trim( oldClasses )
+		this.setAttribute( "class",oldClasses );
+	});
+	return this;
+};
+
 //Make global
 ge.fn.meet.prototype = ge.fn;
 window.$ = window._ = window.ge = ge;
