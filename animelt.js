@@ -30,6 +30,7 @@ var unit = /[a-z%]+$/i,
 	digits = /[0-9.]+/g,
 	simpleVal = /([0-9.]+)([a-z%]+)/gi,
 	words = /[a-z]+/gi,
+	specials = {},
 	complex = /[(),\s]+/g;
 
 ge.fn = ge.prototype = {
@@ -63,9 +64,9 @@ ge.fn = ge.prototype = {
 			return this;
 		};
 		if( typeof sel == "object" ){
-			var _t = this;
+			var $this = this;
 			ge.each(sel,function(i, key, val){
-				_t[ key ] = val;
+				$this[ key ] = val;
 			});
 			return this;
 		}
@@ -115,17 +116,13 @@ ge.fn = ge.prototype = {
 		if( arguments.length == 2 ){
 			var val = arguments[ 1 ];
 			this.each(function(){
-				this.style[ props ] = val;
+				ge.css( props,val, this );
 			});
 			return this;
 		};
 		if( typeof props == "string" ){
-			if( window.getComputedStyle )
-				return window.getComputedStyle( this.bag[0] )[ ge.decamel(props) ]
-						|| this.bag[0].style[ ge.camel(props) ];
-			else if( document.currentStyle )
-				return this.bag[0].currentStyle[ ge.decamel(props) ];
-		}
+			return ge.css( props, this.bag[0] );
+		};
 		ge.each(this.bag,function(){
 			ge.css( props,this );
 		});
@@ -134,59 +131,43 @@ ge.fn = ge.prototype = {
 	
 	animelt: function( props,opts,time,fn,easing ){
 		if( !props ) return this;
-		var bkp;
-		if( typeof opts == "number" ){
-			bkp = opts;
-				opts = {};
-				opts.duration = bkp;
-		};
-		if( typeof opts == "string" ){
-			bkp = opts;
-				opts = {};
-				opts.easing = bkp;
-		};
-		//If no opts.duration he assumes, the defualt value, 600ms.
-		if( !opts ) opts = { duration:0.6 };
-		
-		if( !opts.duration ) opts.duration = 0.6;
+		opts = ge.parserOpts( opts,time,fn,easing );
 
 		opts.duration = opts.duration * 1000;
 
 		var start, now,
-			diffComplex = [], fromComplex = [],
 			per,
 			easing = opts.easing ? ge.easings[ opts.easing ] : function( p ){ return p; },
 			interval = opts.fps ? Math.round( 1000/opts.fps ) : 20;
 			
 		var els = this.bag,
-			lethis = this;
-		//'Precreate' a local for store the props values from,diff,unit
-		ge.each( els,function( elIndex ){			
-			fromComplex[elIndex] = [];
-			diffComplex[elIndex] = [];				
-		} );		
-		
-		//@fromComplex and @diffComplex explanation:
-		//fromComplex[elIndex], references a other array with the props vals into him
-		//fromComplex[elIndex][i], references the prop values (complex or normals vals)
+			quickGe = ge(),
+			$this = this;
+		//@nodecss keeps the props of els
+		var nodecss = [];
 
-		ge.each( props,function( i,prop,val ){
-			for(var elIndex=0,elCounter=els.length;elIndex < elCounter;elIndex++){
-				var theVal = ge.css( prop,els[elIndex] );
-				if( prop == "opacity" ){
-					fromComplex[elIndex][i] = parseFloat(theVal) || 0;
-					diffComplex[elIndex][i] = parseFloat(val) - fromComplex[elIndex][i];
-					continue;
-				};
-				fromComplex[elIndex][i] = els[elIndex].style[ ge.camel(prop) ].match(simpleVal) || (theVal.match(simpleVal) || [0]);
-				diffComplex[elIndex][i] = [];
-				for( var cnt = 0,matches=val.match(simpleVal),lngt=matches.length;cnt<lngt;cnt++ ){
-					fromComplex[elIndex][i][cnt] = parseFloat( fromComplex[elIndex][i][cnt] ) || 0;
-					diffComplex[elIndex][i][cnt] = parseFloat(matches[cnt]) - (fromComplex[elIndex][i][cnt] || 0);
-				};
-			};
-
-		} );
+		this.each(function( el ){
+			var node = this,
+				//@prop keeps the old and new value of prop
+				prop = { };
+			ge.each(props,function( i,key,val ){
+				//Makes the cross-browser
+				if( key in specials )
+					key = specials[key];
+				//Store the origin value
+				var oldvalue = "";
+				//Tries find the @oldValue in @el.style propertie
+				if ( node.style[key] )
+					oldvalue = node.style[key];
+				//If not tries find the @oldValue in computedStyle of el
+				else if ( digits.test( ge(node).css(key) ) )
+					oldvalue = ge(node).css( key );
+				//If it does not find in either the @oldValue takes value 0
+				else oldvalue = "0";
+				prop[ key ] = [ oldvalue,val ];
+			});
+			nodecss[ el ] = prop;
+		});
 		
 		//We're go!
 			start = ge.now();
@@ -197,28 +178,36 @@ ge.fn = ge.prototype = {
 			
 			if ( per > 1 ) per = 1;
 			per = easing( per );
-			
-			ge.each(props,function( i,prop,val ){
-				var elIndex = 0;
-				ge.each( els,function( ){
-						//The magic, but this incremental feature have a less performance
-						// :(
-					var x = 0;
-					if( prop !== "opacity" )
-						this.style[ prop ] = val.replace(simpleVal,function(exp,num,unt){
-							return fromComplex[elIndex][i][x] + diffComplex[elIndex][i][x] * per + unt;
-							x++;
-						});
-					else
-						this.style[ prop ] = fromComplex[elIndex][i] + diffComplex[elIndex][i] * per;	
-					elIndex++;
+
+			$this.each(function( i,el ){
+				//@props gets the props of respective el
+				quickGe.bag[0] = el;
+			 	var props = nodecss[ i ];
+			 	//Makes the 'magic' animation
+			 	//Hey man, look at me rockin' now! (I'm on the net!)
+				ge.each(props,function( j,prop,val ){
+					var ind = 0,
+						//@old store the olds values in an array
+						old = val[0].match( digits );
+					//Uses the Animelt CSS method as Wrapper Pattern
+					quickGe.css( 
+						prop, 
+						val[1].replace(simpleVal,function(exp,num,unit){
+							old[ind] = old[ind] || "0";
+							Number(num) == Number(old[ind]) ?
+								old[ind] = 0 : void 0;							
+							var finalvalue = Number(old[ind]) + ( Number(num) - Number(old[ind]) ) * per;						
+							ind++;
+							return finalvalue + unit;
+						}) 
+					);
 				});
-			});
+			});		
 			
 			//Finish
 			if( per === 1 ){
 				window.clearTimeout( id );
-				if(fn) fn.call( lethis );
+				if(fn) fn.call( $this );
 			}else window.setTimeout( run,interval );
 		},interval);
 
@@ -270,12 +259,16 @@ ge.now = function(){
 };
 
 ge.css = function( props,els ){
+	if( ge.isStr(els) ){
+		arguments[2].style[ props ] = els; 
+	}
 	if(els.nodeName && els.nodeType){
 		if( typeof props == "string" ){
 			if( window.getComputedStyle )
-				return window.getComputedStyle( els )[ props ];
-			else if( document.currentStyle)
-				return els.currentStyle[ props ];
+				return window.getComputedStyle( els )[ ge.decamel(props) ]
+						|| els.style[ ge.camel( props ) ];
+			else if( document.currentStyle )
+				return els.currentStyle[ ge.decamel(props) ];
 		}
 		ge.each(props,function(i,prop,val){			
 			if( typeof val == "number" && prop !== "opacity" )
@@ -289,11 +282,73 @@ ge.css = function( props,els ){
 ge.each = function( arr,fn ){
 	var i = 0;
 	if( arr.constructor == Object )
-		for( var val in arr)
-			fn.call( arr[val],i++,val,arr[val] );
+		for( var key in arr)
+			fn.call( arr[key],i++,key,arr[key] );
 	else
-		for( var count=arr.length;i<count;++i )
+		for( var count=arr.length;i<count;i++ )
 			fn.call( arr[ i ],i,arr[ i ] );
+};
+
+ge.each({
+
+	isNumber: function( number ){
+		return number.constructor == Number;
+	},
+
+	isStr: function( str ){
+		return str.constructor == String;
+	},
+
+	isArr: function( arr ){
+		return arr.constructor == Array;
+	},
+
+	isObj: function( obj ){
+		return obj.constructor == Object;
+	},
+
+	isFn: function( fn ){
+		return fn.constructor == Function
+	}
+
+}, function( i,name,val ){
+	ge[ name ] = val;	
+});
+
+ge.merge = function( to ){
+	ge.each( arguments,function( i,idx,obj ){
+		if( i !== 0 ){
+			ge.each( obj,function( u,key,val ){
+				to[ key ] = val;
+			} );
+		};
+	} );
+	return to;
+};
+
+ge.parserOpts = function( options ){
+	var opts = {
+		duration: 0.6,
+		finish: function(){ },
+		easing: void 0
+	};
+	if( options == undefined )
+		return opts;
+
+	if( ge.isObj( options ) ){
+		return ge.merge( opts,options );
+	};
+
+	ge.each(arguments, function( i,key,val ){
+		if( val !== undefined )
+			if ( ge.isNumber( val ) )
+				opts.duration = val;
+			else if( ge.isStr( val ) )
+				opts.easing = val;
+			else if( ge.isFn( val ) )
+				opts.finish = val;
+	});
+	return opts;
 };
 //Strings manipulation
 
