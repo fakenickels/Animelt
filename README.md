@@ -20,7 +20,6 @@ $("div").animelt({
 	console.log("It's finished!");
 });
 
-```javascript
 $("div").animelt({
 	"-webkit-transform": "rotateX(30deg) rotateY(120deg)",
 	boxShadow: "0px 0px 20px #000"
