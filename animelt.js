@@ -25,7 +25,7 @@ var ge = function( sel,ctx ){
 	return new ge.fn.meet( sel,ctx );
 };
 
-//Regexps
+// Regexps
 var unit = /[a-z%]+$/i,
 	digits = /[0-9.]+/g,
 	simpleVal = /([0-9.]+)([a-z%]+)/gi,
@@ -129,9 +129,9 @@ ge.fn = ge.prototype = {
 		return this;
 	},
 	
-	animelt: function( props,opts,time,fn,easing ){
+	animelt: function( props, opts, time, fn, easing ){
 		if( !props ) return this;
-		opts = ge.parserOpts( opts,time,fn,easing );
+		opts = ge.fx.parseOpts( opts, time, fn, easing );
 
 		opts.duration = opts.duration * 1000;
 
@@ -243,6 +243,36 @@ ge.fn = ge.prototype = {
 	}
 };
 
+// ----- FX -----
+ge.fx = {
+	ge.parseOpts = function( options ){
+		var opts = {
+			duration: 0.6,
+			finish: function(){ },
+			easing: void 0
+		};
+		if( options == undefined )
+			return opts;
+
+		if( ge.isObj( options ) ){
+			return ge.merge( opts,options );
+		};
+
+		ge.each(arguments, function( i,key,val ){
+			if( val !== undefined )
+				if ( ge.isNumber( val ) )
+					opts.duration = val;
+				else if( ge.isStr( val ) )
+					opts.easing = val;
+				else if( ge.isFn( val ) )
+					opts.finish = val;
+		});
+		return opts;
+	},
+
+
+}
+
 ge.makeArray = function( obj ){
 	var lng = obj.length,
 		arr = [],
@@ -326,30 +356,7 @@ ge.merge = function( to ){
 	return to;
 };
 
-ge.parserOpts = function( options ){
-	var opts = {
-		duration: 0.6,
-		finish: function(){ },
-		easing: void 0
-	};
-	if( options == undefined )
-		return opts;
 
-	if( ge.isObj( options ) ){
-		return ge.merge( opts,options );
-	};
-
-	ge.each(arguments, function( i,key,val ){
-		if( val !== undefined )
-			if ( ge.isNumber( val ) )
-				opts.duration = val;
-			else if( ge.isStr( val ) )
-				opts.easing = val;
-			else if( ge.isFn( val ) )
-				opts.finish = val;
-	});
-	return opts;
-};
 //Strings manipulation
 
 ge.cssMath = function( str1,str2,op ){
