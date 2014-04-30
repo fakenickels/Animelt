@@ -451,42 +451,6 @@ ge.fn.hover = function( fn,fn2 ){
 	return this;
 };
 
-var isDown = false,
-	startDownX = 0,
-	startDownY = 0,
-	offset = {};
-ge.bind( document,"mousemove",function( ev ){
-	var el = ev.target || ev.srcElement,
-		dragEl = ((el.getAttribute("class") + "").search("animelt-drag")*1)+1;
-	if( isDown && dragEl ){
-		el.style.left = ev.clientX - el.offsetX + "px";
-		el.style.top = ev.clientY - el.offsetY + "px";
-	};
-});
-ge.bind( document,"mousedown",function(ev){
-	var el = ev.target || ev.srcElement,
-		dragEl = ((el.getAttribute("class") + "").search("animelt-drag")*1)+1;
-	if( dragEl ){ 
-		isDown = true;
-		startDownY = ev.clientY;
-		startDownX = ev.clientX;
-		return false;
-	}
-});
-
-ge.bind( document,"mouseup",function(){
-	isDown = false;
-} );
-
-ge.fn.dragOn = function(){
-	this.addClass( "animelt-drag" );
-
-	this.move(function( ev ){
-		this.offsetX = ev.clientX - ev.target.offsetLeft;
-		this.offsetY = ev.clientY - ev.target.offsetTop;
-	});
-};
-
 //Category: DOM manipulate
 ge.fn.attr = function( attrs,val ){
 	if( typeof attrs == "string" && !val)
