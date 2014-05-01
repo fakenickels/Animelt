@@ -245,7 +245,7 @@ ge.fn = ge.prototype = {
 
 // ----- FX -----
 ge.fx = {
-	ge.parseOpts = function( options ){
+	parseOpts: function( options ){
 		var opts = {
 			duration: 0.6,
 			finish: function(){ },
@@ -268,9 +268,7 @@ ge.fx = {
 					opts.finish = val;
 		});
 		return opts;
-	},
-
-
+	}
 }
 
 ge.makeArray = function( obj ){

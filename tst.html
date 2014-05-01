@@ -14,26 +14,35 @@
 </style>
 </head>
 <body>
-	<h1>Versão de testes</h1>
-<div id="t" style="width:150px;height:150px;background-color:red;position:relative;"></div>
-<div id="other" style="width:150px;height:150px;background-color:blue;position:relative"></div>
-<a href="#">Teste</a>
-<a href="#" onclick="ge('#t').animelt({boxShadow:'0px 0px 20px #000'},0.4)">Teste</a>
-<a href="#" onclick="ge('#other').animelt({'background-image':'-webkit-linear-gradient(360deg,#fff,#000)'})">Teste</a>
+	<!-- TODO: Make this better, for God's sake! -->
+	<h1>Simple tests</h1>
+<p>
+	<div id="t" style="width:150px;height:150px;background-color:red;position:relative;"></div>
+	<a href="#" onclick="ge('#t').animelt({boxShadow:'0px 0px 20px #000'},0.4)">box-shadow animation</a>
+</p>
+
+<p>
+	<div id="other" style="width:150px;height:150px;background-color:blue;position:relative"></div>
+	<a href="#" onclick="ge('#other').animelt({'background-image':'-webkit-linear-gradient(360deg,#fff,#000)'})">Gradient animation</a>	
+</p>
+
+
+<div class="test"></div>
+<div class="test"></div>
+<div class="test"></div>
+<div class="test"></div>
+<div class="test"></div>
+<a href="#" id='border-ani'>Border animation</a>
+
 <script type="text/javascript">
 	$("a").click(function(e){
 		e.preventDefault();
 	})
-	$("a").first().click(function(){
+	$("#border-ani").click(function(){
 		ge(".test").animelt({
 			border: "2px solid #000"
 		}, 1);
 	});
 </script>
-<div class="test"></div>
-<div class="test"></div>
-<div class="test"></div>
-<div class="test"></div>
-<div class="test"></div>
 </body>
 </html>
