@@ -1,6 +1,10 @@
 Animelt
 ============
 
+# Contributors 
+
+- [Judson Barroso](https://github.com/judsonbsilva) (helped me to enhance A LOT the regex engine]
+
 # Demonstration of use
 
 You can call Animelt Lib on this way: ge( selector ), $( selector ) and _( selector )
